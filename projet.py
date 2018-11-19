@@ -418,6 +418,8 @@ def compute_valuations(gram):
           change = True
       # !ABSTRACT PRODUCT RULE ---
   # !LOOP ---
+
+  # Vérification supplémentaire de la valuation des BoxProds
   for rule in gram.values():
     if isinstance(rule, BoxProdRule) and rule.valuation() < 1:
       RuntimeError("Valuation for BoxProductRule inferior to 1")
