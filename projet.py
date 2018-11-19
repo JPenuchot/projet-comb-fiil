@@ -1,5 +1,20 @@
 import math
 
+###                                                                          ###
+### ======================================================================== ###
+###                                 HELPERS                                  ###
+### ======================================================================== ###
+###                                                                          ###
+
+def binop(n, k):
+  return math.factorial(n) / (math.factorial(k) * math.factorial(n - k))
+
+###                                                                          ###
+### ======================================================================== ###
+###                           CLASSES & METHODS                              ###
+### ======================================================================== ###
+###                                                                          ###
+
 class AbstractRule():
   """
   Classe abstraite pour tous les ensembles engendrés par une grammaire.
@@ -23,11 +38,19 @@ class AbstractRule():
   def _set_tag(self, t):
     self._tag = t
 
+# !class AbstractRule()
+
+
+
 class ConstantRule(AbstractRule):
   """
   Représente un ensemble composé d'un objet unique dont la taille
   est spécifié par la méthode degree
   """
+
+# !class ConstantRule(AbstractRule)
+
+
 
 
 class SingletonRule(ConstantRule):
@@ -65,19 +88,12 @@ class SingletonRule(ConstantRule):
       return self.degree()
     return 0
 
-  def unrank(self, S, i):
-    if n == 0:
-      return
-
-  def rank(self, S, elmt):
-    raise NonImplementedError
-
   def list(self, S):
     if len(S) == 1:
       return [self._fun(S[0])]
     return []
 
-
+# !class SingletonRule(ConstantRule)
 
 
 
@@ -106,9 +122,6 @@ class EpsilonRule(ConstantRule):
   def degree(self):
     return 1
 
-  def valuation(self):
-    return 0
-
   def count(self, n):
     if n == 0:
       return self.degree()
@@ -116,8 +129,11 @@ class EpsilonRule(ConstantRule):
 
   def list(self, lst):
     if len(lst) == 0:
-      return [""]
+      return [self._obj]
     return []
+
+# !class EpsilonRule(ConstantRule)
+
 
 
 class ConstructorRule(AbstractRule):
@@ -141,6 +157,8 @@ class ConstructorRule(AbstractRule):
     """
     return self._parameters
 
+# !class ConstructorRule(AbstractRule)
+
 
 
 class UnionRule(ConstructorRule):
@@ -158,6 +176,24 @@ class UnionRule(ConstructorRule):
 
   def __repr__(self):
     return "Union of " + str(self._parameters)
+
+  def count(self, i):
+    if i < self.valuation():
+      return 0
+    kl, kr = self.parameters()
+    rule_l, rule_r = [self._grammar[kl], self._grammar[kr]]
+
+    return rule_l.count(i) + rule_r.count(i)
+
+  def list(self, l):
+    if len(l) < self.valuation():
+      return []
+    kl, kr = self.parameters()
+    rule_l, rule_r = [self._grammar[kl], self._grammar[kr]]
+    return rule_l.list(l) + rule_r.list(l)
+
+# !class UnionRule(ConstructorRule)
+
 
 
 class AbstractProductRule(ConstructorRule):
@@ -179,12 +215,71 @@ class AbstractProductRule(ConstructorRule):
   def construct(self, obj1, obj2):
     return self._cons(*(obj1,obj2))
 
+  def count(self, i):
+    raise Exception("Should be overriden")
+
+  def iter_label(self, l, k):
+    raise Exception("Should be overriden")
+
+  def list(self, l):
+    res = []
+
+    kl, kr = self.parameters()
+    rule_l, rule_r = [self._grammar[kl], self._grammar[kr]]
+
+    for k in range(rule_l.valuation(), len(l) - rule_r.valuation() + 1):
+    # Pour tous les k en fonction des valuations de E1 et E2...
+
+      for lab_l, lab_r in self.iter_label(l, k):
+      # Pour tous les découpages possibles de iter_label...
+
+        for elmt_l in rule_l.list(lab_l):
+          for elmt_r in rule_r.list(lab_r):
+            res.append(self._cons(elmt_l, elmt_r))
+
+    return res
+
+
+# !class AbstractProductRule(ConstructorRule)
+
+
+
 class OrdProdRule(AbstractProductRule):
   """
   Représente un ensemble produit de deux autres ensembles avec labels ordonnés
   """
   def __repr__(self):
     return "Ordered Product of " + str(self.parameters())
+
+  def count(self, i):
+    if i < self.valuation():
+      return 0
+
+    kl, kr = self.parameters()
+    rule_l, rule_r = [self._grammar[kl], self._grammar[kr]]
+
+    res = 0
+    for k in range(rule_l.valuation(), i - rule_r.valuation() + 1):
+      res += rule_l.count(k) * rule_r.count(i - k)
+    return res
+
+  def iter_label(self, l, k):
+    if len(l) == 0:
+      return []
+
+    if k == 0:
+      yield [], l
+      return
+
+    l, head = [l.copy(), []]
+    l.sort()
+    while not len(head) == k:
+      head.append(l[0])
+      l.remove(l[0])
+    yield head, l
+
+# !class OrdProdRule(AbstractProductRule)
+
 
 
 class ProductRule(AbstractProductRule):
@@ -200,6 +295,45 @@ class ProductRule(AbstractProductRule):
   def __repr__(self):
     return "Product of " + str(self.parameters())
 
+  def count(self, i):
+    if i < self.valuation():
+      return 0
+
+    kl, kr = self.parameters()
+    rule_l, rule_r = [self._grammar[kl], self._grammar[kr]]
+
+    res = 0
+    for k in range(rule_l.valuation(), i - rule_r.valuation() + 1):
+      res += binop(i, k) * rule_l.count(k) * rule_r.count(i - k)
+    return res
+
+  def iter_label(self, l, k):
+    if len(l) == 0:
+      return []
+
+    if k == 0:
+      yield [], l
+
+    elif k == 1:
+    # Listes contenant chaque élément
+      for elmt in l:
+        l_ = l.copy()
+        l_.remove(elmt)
+        yield [elmt], l_
+
+    else:
+    # Récursion
+      for hd, tl in self.iter_label(l, k - 1):
+        for elmt in tl:
+          hd_, tl_ = [hd.copy(), tl.copy()]
+          tl_.remove(elmt)
+          hd_.append(elmt)
+          yield hd_, tl_
+
+# !class ProductRule(AbstractProductRule)
+
+
+
 class BoxProdRule(AbstractProductRule):
   """
   Représente un ensemble produit de deux autres ensembles avec plus petit
@@ -211,24 +345,75 @@ class BoxProdRule(AbstractProductRule):
   def __repr__(self):
     return "Boxed Product of " + str(self.parameters())
 
+  def count(self, i):
+    if i < self.valuation():
+      return 0
 
-"""
-"""
-"""
-    CODE THAT MATTERS
-"""
-"""
-"""
+    kl, kr = self.parameters()
+    rule_l, rule_r = [self._grammar[kl], self._grammar[kr]]
+
+    res = 0
+    for k in range(max(rule_l.valuation(), 1), i - rule_r.valuation() + 1):
+      res += binop(i - 1, k - 1) * rule_l.count(k) * rule_r.count(i - k)
+    return res
+
+  def iter_label(self, l, k):
+    if len(l) == 0:
+      return []
+    if k == 0:
+      return [], l
+
+    elif k == 1:
+    # Liste contenant le plus petit élément
+      l.sort()
+      elmt = l[0]
+      l.remove(elmt)
+      yield [elmt], l
+
+    else:
+    # Récursion
+      for hd, tl in self.iter_label(l, k - 1):
+        for elmt in tl:
+          hd_, tl_ = [hd.copy(), tl.copy()]
+          tl_.remove(elmt)
+          hd_.append(elmt)
+          yield hd_, tl_
+
+# !class BoxProdRule(AbstractProductRule)
+
+###                                                                          ###
+### ======================================================================== ###
+###                         EXTERNAL FUNCTIONS                               ###
+### ======================================================================== ###
+###                                                                          ###
 
 
-def save_grammar(gram):
-  """
-  Parcourt les ensembles de la grammaires et leur associe le dictionnaire
-  (clé, ensemble) qui constitue la grammaire.
+def compute_valuations(gram):
+  change = True
 
-  Input :
-    - gram, une grammaire donnée sous forme d'un dictionnaire
-  """
+  while change:
+  # LOOP  ---
+
+    change = False
+    for name, rule in gram.items():
+
+      if   isinstance(rule, UnionRule):
+      # UNION RULE  ---
+        for p in rule.parameters():
+          if gram[p].valuation() < rule.valuation():
+            rule._set_valuation(gram[p].valuation())
+            change = True
+      # !UNION RULE ---
+
+      elif isinstance(rule, AbstractProductRule):
+      # ABSTRACT PRODUCT RULE  ---
+        p1, p2 = rule.parameters()
+        if gram[p1].valuation() + gram[p2].valuation() != rule.valuation():
+          rule._set_valuation(gram[p1].valuation() + gram[p2].valuation())
+          change = True
+      # !ABSTRACT PRODUCT RULE ---
+  # !LOOP ---
+
 
 def check_grammar(gram):
   """
@@ -242,35 +427,18 @@ def check_grammar(gram):
           return False
   return True
 
-def compute_valuations(gram):
-  change = True
 
-  while change:
-  # LOOP  ---
+def save_grammar(gram):
+  """
+  Parcourt les ensembles de la grammaires et leur associe le dictionnaire
+  (clé, ensemble) qui constitue la grammaire.
 
-    change = False
-    for name, rule in gram.items():
-
-      if   isinstance(rule, UnionRule):
-      # UNION RULE  ---
-        old_val = rule.valuation()
-        for p in rule.parameters():
-          if gram[p].valuation() < rule._valuation:
-            rule._set_valuation(gram[p].valuation())
-            change = True
-      # !UNION RULE ---
-
-      elif isinstance(rule, ProductRule):
-      # PRODUCT RULE  ---
-        old_val = rule.valuation()
-        p1, p2 = rule.parameters()
-        if gram[p1].valuation() + gram[p2].valuation() != old_val:
-          rule._set_valuation(gram[p1].valuation() + gram[p2].valuation())
-          change = True
-      # !PRODUCT RULE ---
-  # !LOOP ---
-
-
+  Input :
+    - gram, une grammaire donnée sous forme d'un dictionnaire
+  """
+  for tag, elmt in gram.items():
+    elmt._set_grammar(gram)
+    elmt._set_tag(tag)
 
 def init_grammar(gram):
   """
@@ -287,11 +455,10 @@ def init_grammar(gram):
     raise RuntimeError("Invalid grammar")
 
   compute_valuations(gram)
-
-  for tag, elmt in gram.items():
-    elmt._set_grammar(gram)
-    elmt._set_tag(tag)
-
+  for k, v in gram.items():
+    print(k, v.valuation())
+  print()
+  save_grammar(gram)
 
 TreeLabelNodes = {
   "Tree" :      UnionRule("Node", "Leaf"),
