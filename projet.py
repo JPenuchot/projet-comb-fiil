@@ -307,7 +307,7 @@ class ProductRule(AbstractProductRule):
     res = []
 
     if k == 0:
-      return res
+      return [([], l)]
 
     elif k == 1:
     # Listes contenant chaque élément
