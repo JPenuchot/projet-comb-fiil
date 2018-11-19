@@ -222,6 +222,8 @@ class AbstractProductRule(ConstructorRule):
     raise Exception("Should be overriden")
 
   def list(self, l):
+    if(len(l) < self.valuation()):
+      return []
     res = []
 
     kl, kr = self.parameters()
@@ -264,19 +266,13 @@ class OrdProdRule(AbstractProductRule):
     return res
 
   def iter_label(self, l, k):
-    if len(l) == 0:
-      return []
+    l_, head = [l.copy(), []]
 
-    if k == 0:
-      yield [], l
-      return
-
-    l, head = [l.copy(), []]
-    l.sort()
+    l_.sort()
     while not len(head) == k:
-      head.append(l[0])
-      l.remove(l[0])
-    yield head, l
+      head.append(l_[0])
+      l_.remove(l_[0])
+    yield head, l_
 
 # !class OrdProdRule(AbstractProductRule)
 
@@ -308,18 +304,17 @@ class ProductRule(AbstractProductRule):
     return res
 
   def iter_label(self, l, k):
-    if len(l) == 0:
-      return []
+    res = []
 
     if k == 0:
-      yield [], l
+      return res
 
     elif k == 1:
     # Listes contenant chaque élément
       for elmt in l:
         l_ = l.copy()
         l_.remove(elmt)
-        yield [elmt], l_
+        res.append(([elmt], l_))
 
     else:
     # Récursion
@@ -328,7 +323,11 @@ class ProductRule(AbstractProductRule):
           hd_, tl_ = [hd.copy(), tl.copy()]
           tl_.remove(elmt)
           hd_.append(elmt)
-          yield hd_, tl_
+          tl_.sort()
+          hd_.sort()
+          if not (hd_, tl_) in res:
+            res.append((hd_, tl_))
+    return res
 
 # !class ProductRule(AbstractProductRule)
 
@@ -339,8 +338,11 @@ class BoxProdRule(AbstractProductRule):
   Représente un ensemble produit de deux autres ensembles avec plus petit
   label à gauche
   """
-  #def __init__(self):
-  #  self._valuation = 1
+  def __init__(self, key1, key2, fun):
+    AbstractProductRule.__init__(self, key1, key2, fun)
+    self._fun = fun
+    self._key1 = key1
+    self._key2 = key2
 
   def __repr__(self):
     return "Boxed Product of " + str(self.parameters())
@@ -358,26 +360,29 @@ class BoxProdRule(AbstractProductRule):
     return res
 
   def iter_label(self, l, k):
-    if len(l) == 0:
-      return []
+    res = []
     if k == 0:
-      return [], l
+      return res
 
     elif k == 1:
-    # Liste contenant le plus petit élément
-      l.sort()
-      elmt = l[0]
-      l.remove(elmt)
-      yield [elmt], l
+      # Liste contenant le plus petit élément
+      l_ = l.copy()
+      elmt = l_[0]
+      l_.remove(elmt)
+      res.append(([elmt], l_))
 
     else:
-    # Récursion
+      # Récursion
       for hd, tl in self.iter_label(l, k - 1):
         for elmt in tl:
           hd_, tl_ = [hd.copy(), tl.copy()]
-          tl_.remove(elmt)
           hd_.append(elmt)
-          yield hd_, tl_
+          tl_.remove(elmt)
+          hd_.sort()
+          tl_.sort()
+          if not (hd_, tl_) in res:
+            res.append((hd_, tl_))
+    return res
 
 # !class BoxProdRule(AbstractProductRule)
 
@@ -413,7 +418,9 @@ def compute_valuations(gram):
           change = True
       # !ABSTRACT PRODUCT RULE ---
   # !LOOP ---
-
+  for rule in gram.values():
+    if isinstance(rule, BoxProdRule) and rule.valuation() < 1:
+      RuntimeError("Valuation for BoxProductRule inferior to 1")
 
 def check_grammar(gram):
   """
@@ -455,6 +462,7 @@ def init_grammar(gram):
     raise RuntimeError("Invalid grammar")
 
   compute_valuations(gram)
+
   for k, v in gram.items():
     print(k, v.valuation())
   print()
