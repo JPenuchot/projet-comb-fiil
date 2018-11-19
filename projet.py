@@ -460,34 +460,5 @@ def init_grammar(gram):
   """
   if not check_grammar(gram):
     raise RuntimeError("Invalid grammar")
-
   compute_valuations(gram)
-
-  for k, v in gram.items():
-    print(k, v.valuation())
-  print()
   save_grammar(gram)
-
-TreeLabelNodes = {
-  "Tree" :      UnionRule("Node", "Leaf"),
-  "Node" :      ProductRule("Label","Subtrees", lambda l,t: Node(t[0],t[1],l)),
-  "Label" :     SingletonRule(lambda x:x),
-  "Subtrees" :  ProductRule("Tree","Tree", lambda t1,t2: (t1,t2)),
-  "Leaf" :      EpsilonRule(0)
-}
-
-init_grammar(TreeLabelNodes)
-
-"""
-Liste des classes:
-
-  ConstantRule
-  SingletonRule
-  EpsilonRule
-  ConstructorRule
-  UnionRule
-  AbstractProductRule
-  OrdProdRule
-  ProductRule
-  BoxProdRule
-"""
