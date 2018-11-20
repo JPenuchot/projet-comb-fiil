@@ -55,6 +55,7 @@ assert Perm2["Perms"].count(0) == 0 # nb d'objets de taille 0
 assert Perm2["Perms"].count(1) == 0 # nb d'objets de taille 1
 assert Perm2["Perms"].count(2) == 2 # nb d'objets de taille 2
 
+
 # liste des objets de taille 0
 assert Perm2["Perms"].list([]) == []
 # liste des objets étiquetés par un ensemble donné
@@ -160,7 +161,10 @@ assert TreeLabelLeaves["Tree"].count(3) == 12 # 2 * 6
 assert TreeLabelLeaves["Tree"].count(4) == 120 # 5 * 24
 
 assert TreeLabelLeaves["Tree"].list(["a","b"]) == [
-Node(Leaf("a"),Leaf("b")), Node(Leaf("b"),Leaf("a"))]
+  Node(Leaf("a"),Leaf("b")),
+  Node(Leaf("b"),Leaf("a"))
+]
+
 assert len(TreeLabelLeaves["Tree"].list(["a","b","c"])) == 12
 assert len(TreeLabelLeaves["Tree"].list(["a","b","c","d"])) == 120
 
